@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(cd "$(dirname "$0")/.." >/dev/null && command pwd -P)
+
+cli=$("$root/bin/resolve-cli")
+mkdir -p "$root/artifacts" "$root/.tmp/fixture-cache"
+export BASIN_TEST_CLI_HOST="$cli"
+export BASIN_ACCEPTANCE_UID=$(id -u)
+export BASIN_ACCEPTANCE_GID=$(id -g)
+
+# Naming the Compose project lets two suites, such as two shards, share a host
+# without claiming each other's containers or volumes.
+compose=(
+  docker compose
+  --project-name "${BASIN_ACCEPTANCE_PROJECT:-basin-acceptance}"
+  --file "$root/compose.yml"
+)
+
+cleanup() {
+  "${compose[@]}" down --volumes --remove-orphans
+}
+trap cleanup EXIT
+
+status=0
+"${compose[@]}" build runner
+"${compose[@]}" run --rm runner \
+  bundle exec bin/acceptance "$@" || status=$?
+
+if [ "$status" -ne 0 ]; then
+  "${compose[@]}" logs >&2
+fi
+exit "$status"

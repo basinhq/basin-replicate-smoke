@@ -1,0 +1,14 @@
+{
+  "source": {"kind": "mysql", "options": {
+    "host": "${mysql_host}",
+    "port": ${mysql_port},
+    "user": "${mysql_user}",
+    "password": "${mysql_password}",
+    "tls": "disabled",
+    "include_tables": [
+      "${mysql_database}.audit",
+      "${mysql_database}.geo",
+      "${mysql_database}.orders"
+    ]
+  }}
+}

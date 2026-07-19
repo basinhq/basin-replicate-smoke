@@ -1,0 +1,7 @@
+{
+  "pipeline": "validation-rejects",
+  "source": {"kind": "oracle", "options": {}},
+  "sink": {"kind": "unknownsink", "options": {}},
+  "state": {"kind": "sqlite", "options": {"path": "${state_dir}/state.db"}},
+  "worker": {"lease_overlap": "hourly"}
+}

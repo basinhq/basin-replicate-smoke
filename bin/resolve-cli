@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolves the Basin CLI under test to a path on this host and prints it.
+#
+# Sources, highest precedence first:
+#   BASIN_TEST_CLI    an existing local binary, used exactly as given
+#   BASIN_CLI_IMAGE   a full pack image reference, pulled and unpacked
+#   BASIN_CLI_REPO and BASIN_CLI_TAG, defaulting to the published pack image
+#
+# The binary is never executed here. It has to run inside the pinned runner
+# container, not on this host, so bin/acceptance checks it where it will run.
+
+root=$(cd "$(dirname "$0")/.." >/dev/null && command pwd -P)
+
+if [ -n "${BASIN_TEST_CLI:-}" ]; then
+  directory=$(cd "$(dirname "$BASIN_TEST_CLI")" >/dev/null && command pwd -P)
+  path="$directory/$(basename "$BASIN_TEST_CLI")"
+  if [ ! -x "$path" ]; then
+    echo "BASIN_TEST_CLI is not an executable file: $path" >&2
+    exit 64
+  fi
+  echo "CLI under test: local binary $path" >&2
+  echo "$path"
+  exit 0
+fi
+
+repository=${BASIN_CLI_REPO:-ghcr.io/basinhq/basin-replicate-pack}
+image=${BASIN_CLI_IMAGE:-$repository:${BASIN_CLI_TAG:-latest}}
+target=$root/.tmp/basin-replicate
+
+echo "CLI under test: pack image $image" >&2
+mkdir -p "$(dirname "$target")"
+# A registry tag must be refreshed, but an image built locally and not yet
+# pushed has nothing to pull. Falling back lets a pack be certified before it
+# is published rather than only after.
+if ! docker pull "$image" >&2; then
+  if ! docker image inspect "$image" >/dev/null 2>&1; then
+    echo "cannot pull $image and no local image by that name" >&2
+    exit 64
+  fi
+  echo "pull failed; using the local image $image" >&2
+fi
+container=$(docker create "$image")
+trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+docker cp "$container:/usr/local/bin/basin-replicate" "$target" >&2
+chmod 0755 "$target"
+echo "$target"

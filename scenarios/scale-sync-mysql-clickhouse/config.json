@@ -1,0 +1,17 @@
+{
+  "pipeline": "${pipeline}",
+  "engine": {"snapshot_mode": "initial"},
+  "source": {"kind": "mysql", "options": {
+    "host": "${mysql_host}",
+    "port": ${mysql_port},
+    "user": "${mysql_user}",
+    "password": "${mysql_password}",
+    "tls": "disabled",
+    "server_id": ${mysql_server_id},
+    "position_policy": "gtid_set",
+    "include_tables": ["${mysql_database}.events"]
+  }},
+  "sink": {"kind": "clickhouse", "options": {"endpoint": "${clickhouse_endpoint}"}},
+  "state": {"kind": "sqlite", "options": {"path": "${state_dir}/state.db"}},
+  "worker": {"lease_overlap": "skip_if_held"}
+}

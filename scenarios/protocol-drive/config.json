@@ -1,0 +1,22 @@
+{
+  "pipeline": "protocol-drive",
+  "engine": {"snapshot_mode": "no_data"},
+  "source": {"kind": "postgres", "options": {
+    "host": "127.0.0.1",
+    "port": 15432,
+    "database": "basin_test",
+    "user": "basin",
+    "tls": "disable",
+    "publication": "protocol_drive_pub",
+    "publication_mode": "create_if_missing",
+    "slot": "protocol_drive_slot",
+    "slot_mode": "create_if_missing",
+    "include_tables": ["public.orders"]
+  }},
+  "sink": {"kind": "ducklake", "options": {
+    "storage": {"type": "local", "path": "${state_dir}/lake"},
+    "catalog": {"type": "duckdb", "path": "${state_dir}/metadata.duckdb"}
+  }},
+  "state": {"kind": "sqlite", "options": {"path": "${state_dir}/state.db"}},
+  "worker": {}
+}

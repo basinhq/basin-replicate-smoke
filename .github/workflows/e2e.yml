@@ -1,0 +1,83 @@
+name: Release E2E tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: Number of parallel shards
+        default: "2"
+      cli_tag:
+        description: Pack image tag holding the CLI under test
+        default: latest
+  repository_dispatch:
+    types: [basin-replicate-published]
+
+permissions:
+  contents: read
+
+env:
+  BASIN_ACCEPTANCE_TEST_SCALE: l
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      total: ${{ steps.plan.outputs.total }}
+      shards: ${{ steps.plan.outputs.shards }}
+      cli_tag: ${{ steps.plan.outputs.cli_tag }}
+    steps:
+      - id: plan
+        env:
+          TOTAL: ${{ github.event.client_payload.shards || inputs.shards || '2' }}
+          CLI_TAG: ${{ github.event.client_payload.tag || inputs.cli_tag || 'latest' }}
+        run: |
+          if [[ ! $TOTAL =~ ^[1-9][0-9]*$ ]]; then
+            echo "shards must be a positive integer: $TOTAL" >&2
+            exit 64
+          fi
+          {
+            echo "total=$TOTAL"
+            echo "cli_tag=$CLI_TAG"
+            echo "shards=$(seq 1 "$TOTAL" | jq --slurp --compact-output .)"
+          } >> "$GITHUB_OUTPUT"
+
+  scenarios:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update && sudo apt-get install --yes just
+      - name: Run release suite shard ${{ matrix.shard }}
+        env:
+          BASIN_CLI_TAG: ${{ needs.plan.outputs.cli_tag }}
+        run: >-
+          just shard e2e
+          "${{ matrix.shard }}"
+          "${{ needs.plan.outputs.total }}"
+      - name: Run release scale shard ${{ matrix.shard }}
+        if: always()
+        env:
+          BASIN_CLI_TAG: ${{ needs.plan.outputs.cli_tag }}
+        run: >-
+          just shard-scenario scale-release
+          "${{ matrix.shard }}"
+          "${{ needs.plan.outputs.total }}"
+      - name: Add results to job summary
+        if: always()
+        run: cat artifacts/results-*.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-e2e-results-shard-${{ matrix.shard }}
+          path: artifacts/
+          if-no-files-found: warn

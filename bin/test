@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+
+root = File.expand_path("..", __dir__)
+$LOAD_PATH.unshift(File.join(root, "lib"))
+$LOAD_PATH.unshift(File.join(root, "test"))
+
+Dir[File.join(root, "test", "**", "*_test.rb")].sort.each do |file|
+  require file
+end

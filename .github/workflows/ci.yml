@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BASIN_ACCEPTANCE_TEST_SCALE: s
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update && sudo apt-get install --yes just
+      - run: just unit
+
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update && sudo apt-get install --yes just
+      - run: just smoke
+      - name: Run small scale check
+        run: just scenario scale-sync-postgres-clickhouse
+      - name: Add results to job summary
+        if: always()
+        run: cat artifacts/results-*.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: smoke-test-results
+          path: artifacts/
+          if-no-files-found: warn

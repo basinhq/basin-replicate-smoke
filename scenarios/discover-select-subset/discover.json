@@ -1,0 +1,10 @@
+{
+  "source": {"kind": "postgres", "options": {
+    "host": "${postgres_host}",
+    "port": ${postgres_port},
+    "database": "${postgres_database}",
+    "user": "${postgres_user}",
+    "tls": "disable",
+    "include_tables": ["${schema}.orders", "${schema}.audit"]
+  }}
+}

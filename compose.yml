@@ -1,0 +1,117 @@
+name: basin-acceptance
+
+services:
+  postgres:
+    image: ${BASIN_ACCEPTANCE_POSTGRES_IMAGE:-postgres:18.4-alpine}
+    command: >
+      postgres
+      -c wal_level=logical
+      -c max_replication_slots=16
+      -c max_wal_senders=16
+      -c shared_buffers=256MB
+      -c work_mem=8MB
+      -c maintenance_work_mem=128MB
+    environment:
+      POSTGRES_USER: basin
+      POSTGRES_PASSWORD: basin
+      POSTGRES_DB: basin_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U basin -d basin_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  mysql:
+    image: ${BASIN_ACCEPTANCE_MYSQL_IMAGE:-mysql:8.4.10}
+    command: >
+      mysqld
+      --gtid-mode=ON
+      --enforce-gtid-consistency=ON
+      --binlog-row-image=FULL
+      --binlog-row-metadata=FULL
+      --local-infile=ON
+      --server-id=1
+      --innodb-buffer-pool-size=512M
+      --innodb-log-buffer-size=64M
+      --max-connections=50
+    environment:
+      MYSQL_ROOT_PASSWORD: basin
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_DATABASE: basin_test
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-pbasin"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
+  clickhouse:
+    # Matches the code repo's pinned e2e image.
+    image: ${BASIN_ACCEPTANCE_CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:26.6.1.1193-alpine}
+    environment:
+      CLICKHOUSE_DB: basin_test
+      CLICKHOUSE_USER: basin
+      CLICKHOUSE_PASSWORD: basin
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "clickhouse-client",
+          "--user", "basin",
+          "--password", "basin",
+          "--query", "SELECT 1",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
+  runner:
+    build:
+      context: .
+    # Naming the built image keeps shards that use their own Compose project
+    # from each building and retaining a separate copy of it.
+    image: basin-acceptance-runner:latest
+    user: "${BASIN_ACCEPTANCE_UID:-1000}:${BASIN_ACCEPTANCE_GID:-1000}"
+    environment:
+      BASIN_ACCEPTANCE_SCALE_ROWS: ${BASIN_ACCEPTANCE_SCALE_ROWS:-40000}
+      BASIN_ACCEPTANCE_TEST_SCALE: ${BASIN_ACCEPTANCE_TEST_SCALE:-l}
+      BASIN_TEST_CLI: /opt/basin/bin/basin-replicate
+      BASIN_ACCEPTANCE_ARTIFACTS: /acceptance/artifacts
+      BASIN_ACCEPTANCE_FIXTURE_CACHE: /acceptance/fixture-cache
+      BASIN_ACCEPTANCE_DOWNLOAD_JOBS: ${BASIN_ACCEPTANCE_DOWNLOAD_JOBS:-4}
+      BASIN_CLICKHOUSE_HOST: clickhouse
+      BASIN_CLICKHOUSE_HTTP_PORT: 8123
+      BASIN_CLICKHOUSE_PASSWORD: basin
+      BASIN_CLICKHOUSE_USER: basin
+      BASIN_DUCKDB_EXTENSION_DIRECTORY: /opt/duckdb/extensions
+      BASIN_MYSQL_HOST: mysql
+      BASIN_MYSQL_PASSWORD: basin
+      BASIN_MYSQL_PORT: 3306
+      BASIN_MYSQL_USER: root
+      BASIN_POSTGRES_DATABASE: basin_test
+      BASIN_POSTGRES_HOST: postgres
+      BASIN_POSTGRES_PASSWORD: basin
+      BASIN_POSTGRES_PORT: 5432
+      BASIN_POSTGRES_USER: basin
+      PGPASSWORD: basin
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${BASIN_TEST_CLI_HOST:-/bin/true}
+        target: /opt/basin/bin/basin-replicate
+        read_only: true
+      - type: bind
+        source: ./artifacts
+        target: /acceptance/artifacts
+      - type: bind
+        source: ./.tmp/fixture-cache
+        target: /acceptance/fixture-cache
+      - type: bind
+        source: ./fixtures
+        target: /acceptance/fixtures
+        read_only: true

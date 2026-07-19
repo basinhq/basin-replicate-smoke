@@ -1,0 +1,7 @@
+{
+  "pipeline": "protocol-broken",
+  "source": {"kind": "oracle", "options": {}},
+  "sink": {"kind": "unknownsink", "options": {}},
+  "state": {"kind": "sqlite", "options": {"path": "${state_dir}/broken.db"}},
+  "worker": {"lease_overlap": "hourly"}
+}

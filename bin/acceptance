@@ -1,0 +1,107 @@
+#!/usr/bin/env ruby
+
+root = File.expand_path("..", __dir__)
+$LOAD_PATH.unshift(File.join(root, "lib"))
+
+require "basin_acceptance"
+
+def usage
+  warn "usage: bin/acceptance smoke|e2e|e2e-full|scenario NAME [--shard INDEX/TOTAL]"
+  64
+end
+
+arguments = ARGV.dup
+shard = nil
+if (position = arguments.index("--shard"))
+  value = arguments.delete_at(position + 1)
+  arguments.delete_at(position)
+  exit usage unless value.to_s.match?(%r{\A\d+/\d+\z})
+
+  index, total = value.split("/").map { |part| Integer(part) }
+  shard = {index: index, total: total}
+end
+
+selector = arguments.shift
+if selector.nil? || !arguments.empty? && selector != "scenario"
+  exit usage
+end
+
+if selector == "scenario"
+  name = arguments.shift
+  exit usage if name.nil? || !arguments.empty?
+end
+
+unless %w[smoke e2e e2e-full scenario].include?(selector)
+  exit usage
+end
+
+executable = ENV["BASIN_TEST_CLI"]
+if executable.nil? || executable.empty?
+  warn "BASIN_TEST_CLI must name the executable under test"
+  exit 64
+end
+
+begin
+  BasinAcceptance::Preflight.verify(executable)
+  suite = BasinAcceptance::Suite.load(File.join(root, "scenarios"))
+  scenarios = if selector == "scenario"
+                suite.select(name)
+              else
+                suite.for_tier(selector.to_sym)
+              end
+  unless shard.nil?
+    scenarios = BasinAcceptance::Suite.shard(
+      scenarios,
+      index: shard.fetch(:index),
+      total: shard.fetch(:total)
+    )
+    puts "shard #{shard[:index]}/#{shard[:total]}: #{scenarios.length} scenarios"
+  end
+  runner = BasinAcceptance::Runner.new(
+    executable: executable,
+    artifact_root: ENV.fetch(
+      "BASIN_ACCEPTANCE_ARTIFACTS",
+      File.join(root, "artifacts")
+    )
+  )
+  records = scenarios.map do |scenario|
+    result = runner.run(scenario)
+    status = if result.skipped?
+      puts "SKIP #{scenario.name} (#{result.skip_reason})"
+      "SKIP"
+    elsif result.passed?
+      commands = Array(result.command_seconds)
+                 .map { |seconds| format("%.3fs", seconds) }
+                 .join(", ")
+      puts format(
+        "PASS %s (%.3fs, %.1f MiB peak CLI RSS; cli: %s)",
+        scenario.name,
+        result.wall_seconds,
+        result.peak_rss_bytes.fdiv(1024 * 1024),
+        commands
+      )
+      "PASS"
+    else
+      warn "FAIL #{scenario.name}"
+      result.failures.each { |failure| warn "  #{failure}" }
+      warn "  artifacts: #{result.artifact_dir}"
+      "FAIL"
+    end
+    {name: scenario.name, status: status, result: result}
+  end
+  report_name = selector == "scenario" ? name : selector
+  report_stem = ["results", report_name, shard && "shard-#{shard[:index]}-of-#{shard[:total]}"]
+                .compact.join("-")
+  report_paths = BasinAcceptance::Report.new(
+    suite: selector,
+    records: records
+  ).write(
+    ENV.fetch("BASIN_ACCEPTANCE_ARTIFACTS", File.join(root, "artifacts")),
+    stem: report_stem
+  )
+  puts "Report: #{report_paths.first}"
+  exit(records.any? { |record| record[:status] == "FAIL" } ? 1 : 0)
+rescue BasinAcceptance::Error => error
+  warn error.message
+  exit 1
+end

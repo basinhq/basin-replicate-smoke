@@ -1,0 +1,23 @@
+{
+  "pipeline": "${pipeline}",
+  "mode": "replicate",
+  "engine": {"snapshot_mode": "initial"},
+  "source": {"kind": "postgres", "options": {
+    "host": "${postgres_host}",
+    "port": ${postgres_port},
+    "database": "${postgres_database}",
+    "user": "${postgres_user}",
+    "tls": "disable",
+    "publication": "${publication}",
+    "publication_mode": "create_if_missing",
+    "slot": "${slot}",
+    "slot_mode": "create_if_missing",
+    "include_tables": ["${schema}.orders"],
+    "schema_change_policy": "safe_additions"
+  }},
+  "sink": {"kind": "clickhouse", "options": {
+    "endpoint": "${clickhouse_endpoint}"
+  }},
+  "state": {"kind": "sqlite", "options": {"path": "${state_dir}/state.db"}},
+  "worker": {"lease_overlap": "skip_if_held"}
+}
