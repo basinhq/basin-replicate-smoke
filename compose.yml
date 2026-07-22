@@ -92,7 +92,6 @@ services:
       BASIN_POSTGRES_PASSWORD: basin
       BASIN_POSTGRES_PORT: 5432
       BASIN_POSTGRES_USER: basin
-      PGPASSWORD: basin
     depends_on:
       clickhouse:
         condition: service_healthy

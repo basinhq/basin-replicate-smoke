@@ -7,6 +7,7 @@
       "port": ${postgres_port},
       "database": "${postgres_database}",
       "user": "${postgres_user}",
+    "password": "${postgres_password}",
       "tls": "disable"
     },
     "mode": "incrementing",

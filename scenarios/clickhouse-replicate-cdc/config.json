@@ -6,6 +6,7 @@
     "port": ${postgres_port},
     "database": "${postgres_database}",
     "user": "${postgres_user}",
+    "password": "${postgres_password}",
     "tls": "disable",
     "publication": "${publication}",
     "publication_mode": "create_if_missing",
@@ -15,7 +16,10 @@
     "schema_change_policy": "halt"
   }},
   "sink": {"kind": "clickhouse", "options": {
-    "endpoint": "${clickhouse_endpoint}"
+    "endpoint": "${clickhouse_endpoint}",
+    "user": "${clickhouse_user}",
+    "password": "${clickhouse_password}",
+    "database": "${clickhouse_database}"
   }},
   "state": {"kind": "sqlite", "options": {"path": "${state_dir}/state.db"}},
   "worker": {"lease_overlap": "skip_if_held"}

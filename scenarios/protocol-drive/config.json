@@ -6,6 +6,7 @@
     "port": 15432,
     "database": "basin_test",
     "user": "basin",
+    "password": "basin",
     "tls": "disable",
     "publication": "protocol_drive_pub",
     "publication_mode": "create_if_missing",

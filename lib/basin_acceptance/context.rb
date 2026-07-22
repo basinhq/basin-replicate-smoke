@@ -47,6 +47,8 @@ module BasinAcceptance
         "catalog_dir" => directory("catalog"),
         "clickhouse_database" => identifier("#{stem}_ch"),
         "clickhouse_endpoint" => clickhouse_endpoint,
+        "clickhouse_password" => clickhouse_password,
+        "clickhouse_user" => clickhouse_user,
         "ext_dir" => ENV.fetch(
           "BASIN_DUCKDB_EXTENSION_DIRECTORY",
           "/opt/duckdb/extensions"
@@ -119,11 +121,6 @@ module BasinAcceptance
       "http://#{host}:#{port}"
     end
 
-    # Environment the CLI under test inherits for this scenario. The ClickHouse
-    # sink names its tables after the collection alone and reads its target
-    # database from the environment, so this is how the scenario's isolated
-    # database reaches the binary.
-    #
     # The cache home is the scenario's own directory, which is empty when the
     # scenario starts and removed when it ends. A binary that caches anything
     # between runs, such as an expanded copy of extensions it carries, therefore
@@ -131,7 +128,6 @@ module BasinAcceptance
     # scenario's or another shard's leftovers.
     def cli_environment
       {
-        "BASIN_CLICKHOUSE_DATABASE" => fetch("clickhouse_database"),
         "XDG_CACHE_HOME" => fetch("cache_dir")
       }
     end
@@ -146,6 +142,14 @@ module BasinAcceptance
 
     def mysql_password
       ENV.fetch("BASIN_MYSQL_PASSWORD", "basin")
+    end
+
+    def clickhouse_user
+      ENV.fetch("BASIN_CLICKHOUSE_USER", "basin")
+    end
+
+    def clickhouse_password
+      ENV.fetch("BASIN_CLICKHOUSE_PASSWORD", "basin")
     end
 
     private

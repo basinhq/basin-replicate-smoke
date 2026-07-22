@@ -95,11 +95,11 @@ module BasinAcceptance
       end
 
       def user
-        ENV.fetch("BASIN_CLICKHOUSE_USER", "basin")
+        @context.fetch("clickhouse_user")
       end
 
       def password
-        ENV.fetch("BASIN_CLICKHOUSE_PASSWORD", "basin")
+        @context.fetch("clickhouse_password")
       end
     end
   end

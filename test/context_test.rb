@@ -59,13 +59,9 @@ class ContextTest < Minitest::Test
     assert(databases.all? { |name| name.match?(/\Aclickhouse_replicate_cdc_[a-f0-9]{8}_ch\z/) })
   end
 
-  def test_the_cli_inherits_the_isolated_clickhouse_database
+  def test_the_cli_does_not_inherit_clickhouse_connection_state
     context = context("clickhouse-replicate-cdc")
-
-    assert_equal(
-      context.fetch("clickhouse_database"),
-      context.cli_environment.fetch("BASIN_CLICKHOUSE_DATABASE")
-    )
+    refute context.cli_environment.key?("BASIN_CLICKHOUSE_DATABASE")
   end
 
   def test_the_cli_caches_into_an_empty_directory_under_the_scenario_work_dir

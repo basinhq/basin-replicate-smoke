@@ -12,7 +12,10 @@
     "position_policy": "gtid_set",
     "include_tables": ["${mysql_database}.events"]
   }},
-  "sink": {"kind": "clickhouse", "options": {"endpoint": "${clickhouse_endpoint}"}},
+  "sink": {"kind": "clickhouse", "options": {"endpoint": "${clickhouse_endpoint}",
+    "user": "${clickhouse_user}",
+    "password": "${clickhouse_password}",
+    "database": "${clickhouse_database}"}},
   "state": {"kind": "sqlite", "options": {"path": "${state_dir}/state.db"}},
   "worker": {"lease_overlap": "skip_if_held"}
 }
